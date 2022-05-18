@@ -14,9 +14,9 @@ pip install -e .
 
 For detailed usage examples, see the [notebooks](notebooks) directory.
 
- * The [text2im](notebooks/text2im.ipynb) [![][colab]][colab-text2im] notebook shows how to use GLIDE (filtered) with classifier-free guidance to produce images conditioned on text prompts. 
+ * The [inference](notebooks/inference.ipynb) [![][colab]][colab-inference] notebook shows how to use GLIDE (filtered) with classifier-free guidance to produce images conditioned on text prompts. 
  * The [inpaint](notebooks/inpaint.ipynb) [![][colab]][colab-inpaint] notebook shows how to use GLIDE (filtered) to fill in a masked region of an image, conditioned on a text prompt. 
  * The [clip_guided](notebooks/clip_guided.ipynb) [![][colab]][colab-guided] notebook shows how to use GLIDE (filtered) + a filtered noise-aware CLIP model to produce images conditioned on text prompts. 
 
 [colab]: <https://colab.research.google.com/assets/colab-badge.svg>
-[colab]: <https://colab.research.google.com/drive/1CLja45L4jISexPPFh7iY0rxu_eWAY5oQ?usp=sharing>
+[colab-inference]: <https://colab.research.google.com/drive/1CLja45L4jISexPPFh7iY0rxu_eWAY5oQ?usp=sharing>
