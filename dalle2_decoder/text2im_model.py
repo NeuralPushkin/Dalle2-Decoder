@@ -73,7 +73,10 @@ class Text2ImUNet(UNetModel):
 
         self.cache_text_emb = cache_text_emb
         self.cache = None
-
+        #
+        self.time_to_half = nn.Linear(768, 768 // 2)
+        self.clip_to_half = nn.Linear(768, 768 // 2)
+        #
     def convert_to_fp16(self):
         super().convert_to_fp16()
         if self.xf_width:
@@ -120,13 +123,14 @@ class Text2ImUNet(UNetModel):
     def del_cache(self):
         self.cache = None
 
-    def forward(self, x, timesteps, tokens=None, mask=None):
+    def forward(self, x, timesteps, clip_emb=None, tokens=None, mask=None):
         hs = []
         emb = self.time_embed(timestep_embedding(timesteps, self.model_channels))
         if self.xf_width:
             text_outputs = self.get_text_emb(tokens, mask)
             xf_proj, xf_out = text_outputs["xf_proj"], text_outputs["xf_out"]
-            emb = emb + xf_proj.to(emb)
+            clip_emb = clip_emb.to(emb)
+            emb = th.cat([self.time_to_half(emb + xf_proj.to(emb) + clip_emb), self.clip_to_half(clip_emb)], dim=1).to(clip_emb)
         else:
             xf_out = None
         h = x.type(self.dtype)

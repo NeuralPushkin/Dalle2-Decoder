@@ -1,12 +1,13 @@
-from glide_text2im.gaussian_diffusion import get_named_beta_schedule
-from glide_text2im.respace import SpacedDiffusion, space_timesteps
-from glide_text2im.text2im_model import (
+from .gaussian_diffusion import get_named_beta_schedule
+from . import gaussian_diffusion as gd
+from .respace import SpacedDiffusion, space_timesteps
+from dalle2_decoder.text2im_model import (
     InpaintText2ImUNet,
     SuperResInpaintText2ImUnet,
     SuperResText2ImUNet,
     Text2ImUNet,
 )
-from glide_text2im.tokenizer.bpe import get_encoder
+from dalle2_decoder.tokenizer.bpe import get_encoder
 
 
 def model_and_diffusion_defaults():
@@ -26,17 +27,24 @@ def model_and_diffusion_defaults():
         xf_heads=8,
         xf_final_ln=True,
         xf_padding=True,
-        diffusion_steps=1000,
-        noise_schedule="squaredcos_cap_v2",
-        timestep_respacing="",
         use_scale_shift_norm=True,
         resblock_updown=True,
         use_fp16=True,
         cache_text_emb=False,
         inpaint=False,
         super_res=False,
-    )
 
+        learn_sigma=True,
+        sigma_small=False,
+        diffusion_steps=1000,
+        noise_schedule="linear",
+        timestep_respacing="",
+        use_kl=False,
+        predict_xstart=False,
+        rescale_timesteps=True,
+        rescale_learned_sigmas=True,
+
+    )
 
 def model_and_diffusion_defaults_upsampler():
     result = model_and_diffusion_defaults()
@@ -67,15 +75,23 @@ def create_model_and_diffusion(
     xf_heads,
     xf_final_ln,
     xf_padding,
-    diffusion_steps,
-    noise_schedule,
-    timestep_respacing,
     use_scale_shift_norm,
     resblock_updown,
     use_fp16,
     cache_text_emb,
     inpaint,
     super_res,
+
+    learn_sigma,
+    sigma_small,
+    diffusion_steps,
+    noise_schedule,
+    timestep_respacing,
+    use_kl,
+    predict_xstart,
+    rescale_timesteps,
+    rescale_learned_sigmas,
+
 ):
     model = create_model(
         image_size,
@@ -102,7 +118,13 @@ def create_model_and_diffusion(
     )
     diffusion = create_gaussian_diffusion(
         steps=diffusion_steps,
+        learn_sigma=learn_sigma,
+        sigma_small=sigma_small,
         noise_schedule=noise_schedule,
+        use_kl=use_kl,
+        predict_xstart=predict_xstart,
+        rescale_timesteps=rescale_timesteps,
+        rescale_learned_sigmas=rescale_learned_sigmas,
         timestep_respacing=timestep_respacing,
     )
     return model, diffusion
@@ -182,14 +204,41 @@ def create_model(
 
 
 def create_gaussian_diffusion(
-    steps,
-    noise_schedule,
-    timestep_respacing,
+    *,
+    steps=1000,
+    learn_sigma=False,
+    sigma_small=False,
+    noise_schedule="linear",
+    use_kl=False,
+    predict_xstart=False,
+    rescale_timesteps=False,
+    rescale_learned_sigmas=False,
+    timestep_respacing="",
 ):
-    betas = get_named_beta_schedule(noise_schedule, steps)
+    betas = gd.get_named_beta_schedule(noise_schedule, steps)
+    if use_kl:
+        loss_type = gd.LossType.RESCALED_KL
+    elif rescale_learned_sigmas:
+        loss_type = gd.LossType.RESCALED_MSE
+    else:
+        loss_type = gd.LossType.MSE
     if not timestep_respacing:
         timestep_respacing = [steps]
     return SpacedDiffusion(
         use_timesteps=space_timesteps(steps, timestep_respacing),
         betas=betas,
+        model_mean_type=(
+            gd.ModelMeanType.EPSILON if not predict_xstart else gd.ModelMeanType.START_X
+        ),
+        model_var_type=(
+            (
+                gd.ModelVarType.FIXED_LARGE
+                if not sigma_small
+                else gd.ModelVarType.FIXED_SMALL
+            )
+            if not learn_sigma
+            else gd.ModelVarType.LEARNED_RANGE
+        ),
+        loss_type=loss_type,
+        rescale_timesteps=rescale_timesteps,
     )
