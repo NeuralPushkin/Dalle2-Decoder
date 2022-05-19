@@ -177,13 +177,6 @@ class InpaintText2ImUNet(Text2ImUNet):
     """
 
     def __init__(self, *args, **kwargs):
-        if "in_channels" in kwargs:
-            kwargs = dict(kwargs)
-            kwargs["in_channels"] = kwargs["in_channels"] * 2 + 1
-        else:
-            # Curse you, Python. Or really, just curse positional arguments :|.
-            args = list(args)
-            args[1] = args[1] * 2 + 1
         super().__init__(*args, **kwargs)
 
     def forward(self, x, timesteps, inpaint_image=None, inpaint_mask=None, **kwargs):
@@ -191,8 +184,11 @@ class InpaintText2ImUNet(Text2ImUNet):
             inpaint_image = th.zeros_like(x)
         if inpaint_mask is None:
             inpaint_mask = th.zeros_like(x[:, :1])
+        inverted_mask = (inpaint_mask == 0).int()
+        inpaint_image = inpaint_image * inpaint_mask
+        new_x = inpaint_image + inverted_mask * x
         return super().forward(
-            th.cat([x, inpaint_image * inpaint_mask, inpaint_mask], dim=1),
+            new_x, dim=1),
             timesteps,
             **kwargs,
         )
