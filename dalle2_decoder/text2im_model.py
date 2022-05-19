@@ -188,7 +188,7 @@ class InpaintText2ImUNet(Text2ImUNet):
         inpaint_image = inpaint_image * inpaint_mask
         new_x = inpaint_image + inverted_mask * x
         return super().forward(
-            new_x, dim=1),
+            new_x,
             timesteps,
             **kwargs,
         )
